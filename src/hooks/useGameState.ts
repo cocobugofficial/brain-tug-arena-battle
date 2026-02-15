@@ -6,6 +6,20 @@ import confetti from 'canvas-confetti';
 
 const TIMER_DURATION = 5;
 
+// AI accuracy by difficulty: chance of answering correctly
+const AI_ACCURACY: Record<Difficulty, number> = {
+  easy: 0.5,
+  medium: 0.65,
+  hard: 0.8,
+};
+
+// AI response delay range in ms
+const AI_DELAY: Record<Difficulty, [number, number]> = {
+  easy: [2000, 4000],
+  medium: [1500, 3000],
+  hard: [800, 2000],
+};
+
 function createInitialState(diff: Difficulty, tournament: boolean): GameState {
   const usedIds = new Set<string>();
   const q = generateQuestion(tournament ? 'hard' : diff, usedIds);
@@ -33,13 +47,21 @@ function createInitialState(diff: Difficulty, tournament: boolean): GameState {
   };
 }
 
-export function useGameState(difficulty: Difficulty, isTournament: boolean, gameKey: number) {
+export function useGameState(
+  difficulty: Difficulty,
+  isTournament: boolean,
+  gameKey: number,
+  isAI: boolean = false,
+  aiDifficulty: Difficulty = 'medium'
+) {
   const [state, setState] = useState<GameState>(() => createInitialState(difficulty, isTournament));
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const aiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Reset when gameKey changes
   useEffect(() => {
     setState(createInitialState(difficulty, isTournament));
+    if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
   }, [gameKey, difficulty, isTournament]);
 
   const stopTimer = useCallback(() => {
@@ -66,6 +88,8 @@ export function useGameState(difficulty: Difficulty, isTournament: boolean, game
 
   const handleAnswer = useCallback((selectedAnswer: number) => {
     stopTimer();
+    if (aiTimeoutRef.current) { clearTimeout(aiTimeoutRef.current); aiTimeoutRef.current = null; }
+
     setState(prev => {
       if (prev.gameOver || !prev.currentQuestion) return prev;
       const isP1 = prev.currentPlayer === 1;
@@ -123,6 +147,32 @@ export function useGameState(difficulty: Difficulty, isTournament: boolean, game
       return nextQuestion(ns);
     });
   }, [stopTimer, checkWin, nextQuestion]);
+
+  // AI auto-answer when it's Player 2's turn
+  useEffect(() => {
+    if (!isAI || state.currentPlayer !== 2 || state.gameOver || !state.currentQuestion || state.player2Frozen) return;
+
+    const [minDelay, maxDelay] = AI_DELAY[aiDifficulty];
+    const delay = minDelay + Math.random() * (maxDelay - minDelay);
+
+    aiTimeoutRef.current = setTimeout(() => {
+      const accuracy = AI_ACCURACY[aiDifficulty];
+      const answersCorrectly = Math.random() < accuracy;
+
+      if (answersCorrectly) {
+        handleAnswer(state.currentQuestion!.answer);
+      } else {
+        // Pick a wrong answer
+        const wrongOptions = state.currentQuestion!.options.filter(o => o !== state.currentQuestion!.answer);
+        const wrongAnswer = wrongOptions[Math.floor(Math.random() * wrongOptions.length)];
+        handleAnswer(wrongAnswer);
+      }
+    }, delay);
+
+    return () => {
+      if (aiTimeoutRef.current) { clearTimeout(aiTimeoutRef.current); aiTimeoutRef.current = null; }
+    };
+  }, [isAI, aiDifficulty, state.currentPlayer, state.currentQuestion?.id, state.gameOver, state.player2Frozen, handleAnswer]);
 
   // Timer
   useEffect(() => {
