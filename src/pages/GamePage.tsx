@@ -1,15 +1,17 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Difficulty, Background } from '@/types/game';
 import { useGameState } from '@/hooks/useGameState';
 import { useCoins } from '@/hooks/useCoins';
+import { useLeaderboard } from '@/hooks/useLeaderboard';
 import RopeArena from '@/components/game/RopeArena';
 import QuestionCard from '@/components/game/QuestionCard';
 import ScoreBoard from '@/components/game/ScoreBoard';
 import GameOver from '@/components/game/GameOver';
 import SkinShop from '@/components/game/SkinShop';
+import Leaderboard from '@/components/game/Leaderboard';
 
-type Screen = 'menu' | 'game' | 'shop';
+type Screen = 'menu' | 'game' | 'shop' | 'leaderboard';
 const BACKGROUNDS: Background[] = ['stadium', 'school', 'home'];
 
 export default function GamePage() {
@@ -21,9 +23,11 @@ export default function GamePage() {
   const [coinsAwarded, setCoinsAwarded] = useState(false);
   const [isAI, setIsAI] = useState(false);
   const [aiDifficulty, setAiDifficulty] = useState<Difficulty>('medium');
+  const matchRecordedRef = useRef(false);
 
   const { coins, addCoins, unlockedSkins, buySkin, selectedSkins, selectSkin, getSkin } = useCoins();
   const { state, handleAnswer, getCoinsEarned } = useGameState(difficulty, isTournament, gameKey, isAI, aiDifficulty);
+  const { stats, recordMatch, clearHistory } = useLeaderboard();
 
   const p1Skin = getSkin(selectedSkins.p1);
   const p2Skin = getSkin(selectedSkins.p2);
@@ -33,22 +37,47 @@ export default function GamePage() {
     setIsTournament(tournament);
     setIsAI(ai);
     setCoinsAwarded(false);
+    matchRecordedRef.current = false;
     setGameKey(k => k + 1);
     setScreen('game');
   }, []);
 
-  // Award coins when game ends
+  // Award coins and record match when game ends
   if (state.gameOver && !coinsAwarded) {
     const earned = getCoinsEarned();
     addCoins(earned);
     setCoinsAwarded(true);
   }
 
+  useEffect(() => {
+    if (state.gameOver && !matchRecordedRef.current) {
+      matchRecordedRef.current = true;
+      recordMatch({
+        mode: isTournament ? 'tournament' : isAI ? 'ai' : 'pvp',
+        difficulty,
+        aiDifficulty: isAI ? aiDifficulty : undefined,
+        winner: state.winner,
+        player1Score: state.player1Score,
+        player2Score: state.player2Score,
+        coinsEarned: getCoinsEarned(),
+        totalQuestions: state.player1Score + state.player2Score,
+      });
+    }
+  }, [state.gameOver]);
+
   if (screen === 'shop') {
     return (
       <div className="min-h-screen bg-background p-4">
         <SkinShop coins={coins} unlockedSkins={unlockedSkins} selectedSkins={selectedSkins}
           onBuy={buySkin} onSelect={selectSkin} onBack={() => setScreen('menu')} />
+      </div>
+    );
+  }
+
+  if (screen === 'leaderboard') {
+    return (
+      <div className="min-h-screen bg-background p-4">
+        <Leaderboard stats={stats} onBack={() => setScreen('menu')} onClear={clearHistory} />
       </div>
     );
   }
@@ -124,11 +153,17 @@ export default function GamePage() {
             ))}
           </div>
 
-          {/* Shop */}
-          <button onClick={() => setScreen('shop')}
-            className="w-full py-3 rounded-xl font-display text-lg shadow-cartoon transition hover:brightness-110 bg-game-coin/20 text-foreground">
-            🎨 Skin Shop
-          </button>
+          {/* Bottom buttons */}
+          <div className="space-y-2">
+            <button onClick={() => setScreen('leaderboard')}
+              className="w-full py-3 rounded-xl font-display text-lg shadow-cartoon transition hover:brightness-110 bg-accent/20 text-foreground">
+              📊 Leaderboard
+            </button>
+            <button onClick={() => setScreen('shop')}
+              className="w-full py-3 rounded-xl font-display text-lg shadow-cartoon transition hover:brightness-110 bg-game-coin/20 text-foreground">
+              🎨 Skin Shop
+            </button>
+          </div>
         </motion.div>
       </div>
     );
@@ -188,7 +223,7 @@ export default function GamePage() {
       {state.gameOver && (
         <GameOver winner={state.winner} player1Score={state.player1Score} player2Score={state.player2Score}
           coinsEarned={getCoinsEarned()} isTournament={state.isTournament}
-          onRestart={() => { setCoinsAwarded(false); setGameKey(k => k + 1); }}
+          onRestart={() => { setCoinsAwarded(false); matchRecordedRef.current = false; setGameKey(k => k + 1); }}
           onMenu={() => setScreen('menu')} />
       )}
     </div>
