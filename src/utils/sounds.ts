@@ -44,3 +44,52 @@ export function playStreakSound() {
     setTimeout(() => playTone(f, 0.2, 'triangle', 0.2), i * 80);
   });
 }
+
+export function playMudSplashSound() {
+  if (!audioCtx) return;
+  // Low thud impact
+  playTone(80, 0.4, 'sine', 0.4);
+  // Noise burst for splash texture
+  const bufferSize = audioCtx.sampleRate * 0.3;
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.15));
+  }
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buffer;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = 600;
+  const gain = audioCtx.createGain();
+  gain.gain.value = 0.3;
+  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+  noise.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+  noise.start();
+  // Secondary bubble sounds
+  setTimeout(() => playTone(120, 0.15, 'sine', 0.15), 200);
+  setTimeout(() => playTone(90, 0.2, 'sine', 0.1), 350);
+}
+
+export function playVictoryFanfare() {
+  // Triumphant ascending fanfare
+  const notes = [523, 659, 784, 880, 1047, 1319, 1568];
+  notes.forEach((f, i) => {
+    setTimeout(() => playTone(f, 0.25, 'sine', 0.25), i * 120);
+  });
+  // Harmony layer
+  setTimeout(() => {
+    [659, 784, 1047, 1319].forEach((f, i) => {
+      setTimeout(() => playTone(f, 0.3, 'triangle', 0.15), i * 150);
+    });
+  }, 100);
+  // Final chord
+  setTimeout(() => {
+    playTone(523, 0.6, 'sine', 0.2);
+    playTone(659, 0.6, 'sine', 0.15);
+    playTone(784, 0.6, 'sine', 0.15);
+    playTone(1047, 0.6, 'sine', 0.1);
+  }, 900);
+}
