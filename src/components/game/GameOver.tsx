@@ -1,4 +1,7 @@
 import { motion } from 'framer-motion';
+import { useEffect } from 'react';
+import confetti from 'canvas-confetti';
+import { playMudSplashSound, playVictoryFanfare } from '@/utils/sounds';
 
 interface GameOverProps {
   winner: 1 | 2 | null;
@@ -13,13 +16,16 @@ interface GameOverProps {
 }
 
 function MudPunishment({ emoji }: { emoji: string }) {
+  useEffect(() => {
+    const timer = setTimeout(() => playMudSplashSound(), 400);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div className="relative w-full flex justify-center my-4">
       <div className="relative w-48 h-28">
-        {/* Mud pool */}
         <div className="absolute bottom-0 w-full h-12 bg-gradient-to-t from-[hsl(30,50%,20%)] to-[hsl(30,60%,35%)] rounded-[50%] shadow-inner" />
 
-        {/* Mud splashes */}
         {[...Array(6)].map((_, i) => (
           <motion.div
             key={i}
@@ -41,7 +47,6 @@ function MudPunishment({ emoji }: { emoji: string }) {
           />
         ))}
 
-        {/* Character falling into mud */}
         <motion.div
           className="absolute left-1/2 -translate-x-1/2 text-5xl z-10"
           initial={{ y: -120, rotate: 0 }}
@@ -51,7 +56,6 @@ function MudPunishment({ emoji }: { emoji: string }) {
           {emoji}
         </motion.div>
 
-        {/* Mud ripple rings */}
         {[0, 1, 2].map(i => (
           <motion.div
             key={`ring-${i}`}
@@ -62,7 +66,6 @@ function MudPunishment({ emoji }: { emoji: string }) {
           />
         ))}
 
-        {/* SPLAT text */}
         <motion.div
           className="absolute -top-2 left-1/2 -translate-x-1/2 font-display text-xl text-[hsl(30,60%,35%)] whitespace-nowrap"
           initial={{ opacity: 0, scale: 0, y: 20 }}
@@ -76,8 +79,80 @@ function MudPunishment({ emoji }: { emoji: string }) {
   );
 }
 
+function VictoryCelebration({ emoji }: { emoji: string }) {
+  useEffect(() => {
+    playVictoryFanfare();
+
+    // Confetti bursts
+    const fire = (opts: confetti.Options) =>
+      confetti({ ...opts, disableForReducedMotion: true });
+
+    fire({ particleCount: 60, spread: 70, origin: { x: 0.3, y: 0.6 } });
+    setTimeout(() => fire({ particleCount: 60, spread: 70, origin: { x: 0.7, y: 0.6 } }), 200);
+    setTimeout(() => fire({ particleCount: 40, spread: 100, origin: { x: 0.5, y: 0.5 }, colors: ['#FFD700', '#FFA500', '#FF6347'] }), 500);
+    setTimeout(() => fire({ particleCount: 30, spread: 120, origin: { x: 0.5, y: 0.4 } }), 800);
+  }, []);
+
+  return (
+    <div className="relative flex flex-col items-center my-3">
+      {/* Glowing stars around winner */}
+      {[...Array(5)].map((_, i) => (
+        <motion.div
+          key={i}
+          className="absolute text-2xl"
+          style={{
+            left: `${20 + i * 15}%`,
+            top: `${10 + (i % 2) * 30}%`,
+          }}
+          initial={{ opacity: 0, scale: 0 }}
+          animate={{
+            opacity: [0, 1, 0.5, 1, 0],
+            scale: [0, 1.2, 0.8, 1.2, 0],
+            rotate: [0, 180, 360],
+          }}
+          transition={{ duration: 2, delay: 0.3 + i * 0.15, repeat: Infinity, repeatDelay: 1 }}
+        >
+          ⭐
+        </motion.div>
+      ))}
+
+      {/* Winner bouncing */}
+      <motion.div
+        className="text-6xl z-10"
+        animate={{
+          y: [0, -15, 0, -10, 0],
+          scale: [1, 1.15, 1, 1.1, 1],
+        }}
+        transition={{ duration: 1.2, repeat: Infinity, repeatDelay: 0.5 }}
+      >
+        {emoji}
+      </motion.div>
+
+      {/* Crown */}
+      <motion.div
+        className="text-3xl -mt-2"
+        initial={{ y: -40, opacity: 0, scale: 0 }}
+        animate={{ y: 0, opacity: 1, scale: 1 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 12, delay: 0.3 }}
+      >
+        👑
+      </motion.div>
+
+      <motion.p
+        className="font-display text-lg text-primary mt-1"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+      >
+        🎉 Champion! 🎉
+      </motion.p>
+    </div>
+  );
+}
+
 export default function GameOver({ winner, player1Score, player2Score, coinsEarned, isTournament, onRestart, onMenu, player1Emoji = '🧑', player2Emoji = '🧑' }: GameOverProps) {
   const loserEmoji = winner === 1 ? player2Emoji : winner === 2 ? player1Emoji : null;
+  const winnerEmoji = winner === 1 ? player1Emoji : winner === 2 ? player2Emoji : null;
   const showMudPunishment = isTournament && winner !== null && loserEmoji;
 
   return (
@@ -87,8 +162,8 @@ export default function GameOver({ winner, player1Score, player2Score, coinsEarn
       transition={{ type: 'spring', stiffness: 200, damping: 15 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm p-4"
     >
-      <div className="bg-card rounded-3xl p-8 shadow-cartoon-lg text-center max-w-sm w-full">
-        <div className="text-6xl mb-4">🏆</div>
+      <div className="bg-card rounded-3xl p-8 shadow-cartoon-lg text-center max-w-sm w-full max-h-[90vh] overflow-y-auto">
+        <div className="text-6xl mb-2">🏆</div>
         <h2 className="font-display text-3xl text-foreground mb-2">
           {winner ? `Player ${winner} Wins!` : "It's a Draw!"}
         </h2>
@@ -96,6 +171,12 @@ export default function GameOver({ winner, player1Score, player2Score, coinsEarn
           {isTournament ? 'Tournament Complete!' : 'Great game!'}
         </p>
 
+        {/* Winner celebration */}
+        {winner !== null && winnerEmoji && (
+          <VictoryCelebration emoji={winnerEmoji} />
+        )}
+
+        {/* Mud punishment for tournament loser */}
         {showMudPunishment && (
           <div>
             <p className="font-display text-sm text-destructive mb-1">
