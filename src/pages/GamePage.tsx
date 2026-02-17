@@ -223,6 +223,7 @@ export default function GamePage() {
       {state.gameOver && (
         <GameOver winner={state.winner} player1Score={state.player1Score} player2Score={state.player2Score}
           coinsEarned={getCoinsEarned()} isTournament={state.isTournament}
+          player1Emoji={p1Skin.emoji} player2Emoji={isAI ? '🤖' : p2Skin.emoji}
           onRestart={() => { setCoinsAwarded(false); matchRecordedRef.current = false; setGameKey(k => k + 1); }}
           onMenu={() => setScreen('menu')} />
       )}
