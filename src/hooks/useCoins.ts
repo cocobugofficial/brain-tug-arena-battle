@@ -7,18 +7,40 @@ const SELECTED_KEY = 'tug_war_selected_skins';
 
 export function useCoins() {
   const [coins, setCoins] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? parseInt(saved, 10) : 0;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+      }
+    } catch { /* corrupted data */ }
+    return 0;
   });
 
   const [unlockedSkins, setUnlockedSkins] = useState<string[]>(() => {
-    const saved = localStorage.getItem(SKINS_KEY);
-    return saved ? JSON.parse(saved) : ['default'];
+    try {
+      const saved = localStorage.getItem(SKINS_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.every(s => typeof s === 'string')) {
+          return parsed.includes('default') ? parsed : ['default', ...parsed];
+        }
+      }
+    } catch { /* corrupted data */ }
+    return ['default'];
   });
 
   const [selectedSkins, setSelectedSkins] = useState<{ p1: string; p2: string }>(() => {
-    const saved = localStorage.getItem(SELECTED_KEY);
-    return saved ? JSON.parse(saved) : { p1: 'default', p2: 'default' };
+    try {
+      const saved = localStorage.getItem(SELECTED_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed.p1 === 'string' && typeof parsed.p2 === 'string') {
+          return parsed;
+        }
+      }
+    } catch { /* corrupted data */ }
+    return { p1: 'default', p2: 'default' };
   });
 
   useEffect(() => {

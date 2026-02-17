@@ -63,8 +63,18 @@ function calcStats(matches: MatchRecord[]): PlayerStats {
 
 export function useLeaderboard() {
   const [matches, setMatches] = useState<MatchRecord[]>(() => {
-    const saved = localStorage.getItem(LEADERBOARD_KEY);
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem(LEADERBOARD_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(
+            (m: any) => m && typeof m.id === 'string' && typeof m.date === 'string' && typeof m.player1Score === 'number'
+          );
+        }
+      }
+    } catch { /* corrupted data */ }
+    return [];
   });
 
   useEffect(() => {
